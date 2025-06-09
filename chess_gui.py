@@ -188,7 +188,7 @@ class ChessGUI:
             pygame.display.flip()
 
     def make_ai_move(self):
-        """Make move based on selected AI algorithm with increased computation time"""
+        """Make move based on selected AI algorithm with full computation time (no artificial delay)"""
         self.ai_thinking = True
         move = None
         
@@ -196,14 +196,12 @@ class ChessGUI:
         def calculate_move():
             nonlocal move
             if self.ai_algorithm == "alpha-beta":
-                move = self.chess_game.get_alpha_beta_move(depth=5)  # Increased depth
+                move = self.chess_game.get_alpha_beta_move(depth=3)  # Increased depth
             elif self.ai_algorithm == "evolutionary":
                 move = self.chess_game.evolutionary_algorithm(population_size=30, generations=10)  # Increased population and generations
             else:  # PSO
                 move = self.chess_game.particle_swarm_optimization(num_particles=30, iterations=15)  # Increased particles and iterations
             
-            # Add minimum thinking time of 2 seconds
-            time.sleep(2)
             self.ai_thinking = False
         
         # Start calculation thread

@@ -586,25 +586,23 @@ class Chess:
     Description: Suggest a move using an Evolutionary Algorithm
     Output: tuple representing the suggested move (start_square, end_square)
     """
-    def evolutionary_algorithm(self, population_size=10, generations=3):
-        """Get the best move using an Evolutionary Algorithm with configurable parameters."""
+    def evolutionary_algorithm(self, population_size=30, generations=10):
+        """Get the best move using an Evolutionary Algorithm with improved diversity and evaluation."""
+        import random
+        from copy import deepcopy
         mutation_rate = 0.1
-        
-        # Initialize population with random moves
-        population = []
+        # Gather all valid moves for the current player
         possible_moves = self.possible_board_moves()
-        
-        for _ in range(population_size):
-            move = None
-            for start_square, moves in possible_moves.items():
-                if ((self.p_move == 1 and start_square[0].isupper()) or 
-                    (self.p_move == -1 and start_square[0].islower())) and moves:
-                    move_coord = moves[0]
-                    move = (start_square, f"{self.x[move_coord[0]]}{self.y[move_coord[1]]}")
-                    break
-            if move:
-                population.append(move)
-        
+        valid_moves = []
+        for start_square, moves in possible_moves.items():
+            if ((self.p_move == 1 and start_square[0].isupper()) or 
+                (self.p_move == -1 and start_square[0].islower())) and moves:
+                for move_coord in moves:
+                    valid_moves.append((start_square, f"{self.x[move_coord[0]]}{self.y[move_coord[1]]}"))
+        if not valid_moves:
+            return ("No move", "No move")
+        # Initialize population with random valid moves
+        population = [random.choice(valid_moves) for _ in range(population_size)]
         # Evolution process
         for _ in range(generations):
             # Evaluate fitness
@@ -615,34 +613,23 @@ class Chess:
                     fitness_scores.append(temp_board.evaluate_position() * self.p_move)
                 else:
                     fitness_scores.append(float('-inf'))
-            
-            # Selection
+            # Selection (tournament)
             selected = []
             for _ in range(population_size // 2):
-                tournament = random.sample(list(enumerate(fitness_scores)), 3)
+                tournament = random.sample(list(enumerate(fitness_scores)), min(3, len(fitness_scores)))
                 winner = max(tournament, key=lambda x: x[1])[0]
                 selected.append(population[winner])
-            
             # Crossover and Mutation
             new_population = selected.copy()
             while len(new_population) < population_size:
                 parent1, parent2 = random.sample(selected, 2)
                 # Crossover: take move from either parent
                 child = random.choice([parent1, parent2])
-                
                 # Mutation: randomly select a new move
                 if random.random() < mutation_rate:
-                    for start_square, moves in possible_moves.items():
-                        if ((self.p_move == 1 and start_square[0].isupper()) or 
-                            (self.p_move == -1 and start_square[0].islower())) and moves:
-                            move_coord = random.choice(moves)
-                            child = (start_square, f"{self.x[move_coord[0]]}{self.y[move_coord[1]]}")
-                            break
-                
+                    child = random.choice(valid_moves)
                 new_population.append(child)
-            
             population = new_population
-        
         # Return best move from final population
         best_move = None
         best_score = float('-inf')
@@ -653,7 +640,6 @@ class Chess:
                 if score > best_score:
                     best_score = score
                     best_move = move
-        
         return best_move if best_move else ("No move", "No move")
 
     """
@@ -661,54 +647,37 @@ class Chess:
     Description: Suggest a move using Particle Swarm Optimization (PSO)
     Output: tuple representing the suggested move (start_square, end_square)
     """
-    def particle_swarm_optimization(self, num_particles=10, iterations=5):
-        """Get the best move using PSO with configurable parameters."""
+    def particle_swarm_optimization(self, num_particles=30, iterations=15):
+        """Get the best move using PSO with improved diversity and evaluation."""
+        import random
+        from copy import deepcopy
         w = 0.7  # Inertia weight
         c1 = 1.5  # Cognitive weight
         c2 = 1.5  # Social weight
-        
         possible_moves = self.possible_board_moves()
         valid_moves = []
-        
-        # Collect valid moves for current player
         for start_square, moves in possible_moves.items():
             if ((self.p_move == 1 and start_square[0].isupper()) or 
                 (self.p_move == -1 and start_square[0].islower())) and moves:
                 for move in moves:
                     valid_moves.append((start_square, f"{self.x[move[0]]}{self.y[move[1]]}"))
-        
         if not valid_moves:
             return ("No move", "No move")
-        
         # Initialize particles
-        particles = []
-        velocities = []
-        personal_best_positions = []
+        particles = [random.choice(valid_moves) for _ in range(num_particles)]
+        velocities = [random.randint(-2, 2) for _ in range(num_particles)]
+        personal_best_positions = particles[:]
         personal_best_scores = []
-        
-        for _ in range(num_particles):
-            # Random initial position (move)
-            particle = random.choice(valid_moves)
-            particles.append(particle)
-            
-            # Random initial velocity
-            velocity = random.randint(-2, 2)
-            velocities.append(velocity)
-            
-            # Initialize personal best
+        for particle in particles:
             temp_board = deepcopy(self)
             if temp_board.move(particle[0], particle[1]):
                 score = temp_board.evaluate_position() * self.p_move
             else:
                 score = float('-inf')
-            
-            personal_best_positions.append(particle)
             personal_best_scores.append(score)
-        
         # Initialize global best
         global_best_score = max(personal_best_scores)
-        global_best_position = particles[personal_best_scores.index(global_best_score)]
-        
+        global_best_position = personal_best_positions[personal_best_scores.index(global_best_score)]
         # PSO iterations
         for _ in range(iterations):
             for i in range(num_particles):
@@ -717,28 +686,23 @@ class Chess:
                 cognitive = c1 * r1 * (valid_moves.index(personal_best_positions[i]) - valid_moves.index(particles[i]))
                 social = c2 * r2 * (valid_moves.index(global_best_position) - valid_moves.index(particles[i]))
                 velocities[i] = int(w * velocities[i] + cognitive + social)
-                
                 # Update position
                 new_index = (valid_moves.index(particles[i]) + velocities[i]) % len(valid_moves)
                 particles[i] = valid_moves[new_index]
-                
                 # Evaluate new position
                 temp_board = deepcopy(self)
                 if temp_board.move(particles[i][0], particles[i][1]):
                     score = temp_board.evaluate_position() * self.p_move
                 else:
                     score = float('-inf')
-                
                 # Update personal best
                 if score > personal_best_scores[i]:
                     personal_best_scores[i] = score
                     personal_best_positions[i] = particles[i]
-                    
                     # Update global best
                     if score > global_best_score:
                         global_best_score = score
                         global_best_position = particles[i]
-        
         return global_best_position
 
     """
@@ -747,7 +711,7 @@ class Chess:
     Output: integer representing the score of the board position
     """
     def evaluate_position(self):
-        """Evaluate the current board position."""
+        """Evaluate the current board position with material and positional factors."""
         score = 0
         piece_values = {
             1: 100,   # Pawn
@@ -757,16 +721,101 @@ class Chess:
             5: 900,   # Queen
             6: 20000  # King
         }
-        
-        # Material score
+        # Piece-square tables (simplified, midgame)
+        pst = {
+            1: [
+                [0, 5, 5, 0, 5, 10, 50, 0],
+                [0, 10, -5, 0, 5, 10, 50, 0],
+                [0, 10, -10, 0, 10, 20, 50, 0],
+                [0, -20, 0, 20, 25, 30, 50, 0],
+                [0, -20, 0, 20, 25, 30, 50, 0],
+                [0, 10, -10, 0, 10, 20, 50, 0],
+                [0, 10, -5, 0, 5, 10, 50, 0],
+                [0, 5, 5, 0, 5, 10, 50, 0],
+            ],
+            2: [
+                [-50, -40, -30, -30, -30, -30, -40, -50],
+                [-40, -20, 0, 0, 0, 0, -20, -40],
+                [-30, 0, 10, 15, 15, 10, 0, -30],
+                [-30, 5, 15, 20, 20, 15, 5, -30],
+                [-30, 0, 15, 20, 20, 15, 0, -30],
+                [-30, 5, 10, 15, 15, 10, 5, -30],
+                [-40, -20, 0, 5, 5, 0, -20, -40],
+                [-50, -40, -30, -30, -30, -30, -40, -50],
+            ],
+            3: [
+                [-20, -10, -10, -10, -10, -10, -10, -20],
+                [-10, 0, 0, 0, 0, 0, 0, -10],
+                [-10, 0, 5, 10, 10, 5, 0, -10],
+                [-10, 5, 5, 10, 10, 5, 5, -10],
+                [-10, 0, 10, 10, 10, 10, 0, -10],
+                [-10, 10, 10, 10, 10, 10, 10, -10],
+                [-10, 5, 0, 0, 0, 0, 5, -10],
+                [-20, -10, -10, -10, -10, -10, -10, -20],
+            ],
+            4: [
+                [0, 0, 0, 5, 5, 0, 0, 0],
+                [-5, 0, 0, 0, 0, 0, 0, -5],
+                [-5, 0, 0, 0, 0, 0, 0, -5],
+                [-5, 0, 0, 0, 0, 0, 0, -5],
+                [-5, 0, 0, 0, 0, 0, 0, -5],
+                [-5, 0, 0, 0, 0, 0, 0, -5],
+                [5, 10, 10, 10, 10, 10, 10, 5],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+            ],
+            5: [
+                [-20, -10, -10, -5, -5, -10, -10, -20],
+                [-10, 0, 0, 0, 0, 0, 0, -10],
+                [-10, 0, 5, 5, 5, 5, 0, -10],
+                [-5, 0, 5, 5, 5, 5, 0, -5],
+                [0, 0, 5, 5, 5, 5, 0, -5],
+                [-10, 5, 5, 5, 5, 5, 0, -10],
+                [-10, 0, 5, 0, 0, 0, 0, -10],
+                [-20, -10, -10, -5, -5, -10, -10, -20],
+            ],
+            6: [
+                [-30, -40, -40, -50, -50, -40, -40, -30],
+                [-30, -40, -40, -50, -50, -40, -40, -30],
+                [-30, -40, -40, -50, -50, -40, -40, -30],
+                [-30, -40, -40, -50, -50, -40, -40, -30],
+                [-20, -30, -30, -40, -40, -30, -30, -20],
+                [-10, -20, -20, -20, -20, -20, -20, -10],
+                [20, 20, 0, 0, 0, 0, 20, 20],
+                [20, 30, 10, 0, 0, 10, 30, 20],
+            ],
+        }
         for y in range(8):
             for x in range(8):
                 piece = self.board[y][x]
                 if piece != 0:
                     piece_type = abs(piece)
                     multiplier = 1 if piece > 0 else -1
+                    # Material
                     score += piece_values[piece_type] * multiplier
-        
+                    # Piece-square table (flip for black)
+                    if piece_type in pst:
+                        if piece > 0:
+                            score += pst[piece_type][y][x]
+                        else:
+                            score -= pst[piece_type][7-y][x]
+        # Penalty for doubled pawns
+        for file in range(8):
+            white_pawns = 0
+            black_pawns = 0
+            for rank in range(8):
+                if self.board[rank][file] == 1:
+                    white_pawns += 1
+                elif self.board[rank][file] == -1:
+                    black_pawns += 1
+            if white_pawns > 1:
+                score -= 20 * (white_pawns - 1)
+            if black_pawns > 1:
+                score += 20 * (black_pawns - 1)
+        # King safety (simple): bonus for castling rights
+        if self.castling[0] or self.castling[1]:
+            score += 30
+        if self.castling[2] or self.castling[3]:
+            score -= 30
         return score
 
     """
@@ -781,15 +830,11 @@ class Chess:
         """Alpha-Beta pruning algorithm for move searching."""
         if depth == 0:
             return self.evaluate_position(), None
-
-        possible_moves = self.possible_board_moves()
         best_move = None
-        
         if maximizing_player:
             max_eval = float('-inf')
-            for start_square, moves in possible_moves.items():
-                if (maximizing_player and self.p_move == 1 and start_square[0].isupper()) or \
-                   (maximizing_player and self.p_move == -1 and start_square[0].islower()):
+            for start_square, moves in self.possible_board_moves().items():
+                if (self.p_move == 1 and start_square[0].isupper()) or (self.p_move == -1 and start_square[0].islower()):
                     for move in moves:
                         temp_board = deepcopy(self)
                         move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
@@ -804,9 +849,8 @@ class Chess:
             return max_eval, best_move
         else:
             min_eval = float('inf')
-            for start_square, moves in possible_moves.items():
-                if (not maximizing_player and self.p_move == 1 and start_square[0].islower()) or \
-                   (not maximizing_player and self.p_move == -1 and start_square[0].isupper()):
+            for start_square, moves in self.possible_board_moves().items():
+                if (self.p_move == 1 and start_square[0].isupper()) or (self.p_move == -1 and start_square[0].islower()):
                     for move in moves:
                         temp_board = deepcopy(self)
                         move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
