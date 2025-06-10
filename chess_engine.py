@@ -5,12 +5,7 @@ import random
 Comparing Evolutionary Algorithms to Alpha-Beta pruning in chess
 """
 class Chess:
-    """
-    Input: EPD - string representing the EPD hash you want to start the game with
-                 (Default='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -') [OPTIONAL]
-    Description: Chess initail variables
-    Output: None
-    """
+
     def __init__(self, EPD='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -'):
         self.x = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] #Board x representation
         self.y = ['8', '7', '6', '5', '4', '3', '2', '1'] #Board y representation
@@ -19,12 +14,7 @@ class Chess:
         self.c_escape = {} #Possible check escapes
         self.reset(EPD=EPD) #Reset game board and state
 
-    """
-    Input: EPD - string representing the EPD hash you want to start the game with
-                 (Default='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -') [OPTIONAL]
-    Description: reset game board to desired EPD hash
-    Output: None
-    """
+
     def reset(self, EPD='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -'):
         self.log = [] #Game log
         self.init_pos = EPD #Inital position
@@ -43,11 +33,7 @@ class Chess:
                       [0, 0, 0, 0, 0, 0, 0, 0]] #Generate empty chess board
         self.load_EPD(EPD) #Load in game starting position
 
-    """
-    Input: None
-    Description: display the current game state
-    Output: None
-    """
+
     def display(self):
         result = '  a b c d e f g h  \n  ----------------\n'
         for c, y in enumerate(self.board):
@@ -65,11 +51,7 @@ class Chess:
         result += '  ----------------\n  a b c d e f g h\n'
         print(result)
 
-    """
-    Input: cord - string representing the game board cordinate you want to convert
-    Description: convert board string cordinate to a matrix index of the cordinate
-    Output: tuple of x,y cordinates for game board matrix
-    """
+
     def board_2_array(self, cord):
         cord = list(cord)
         if len(cord) == 2 and str(cord[0]).lower() in self.x and str(cord[1]) in self.y:
@@ -77,11 +59,7 @@ class Chess:
         else:
             return None
 
-    """
-    Input: None
-    Description: represent current game state as a EPD hash
-    Output: string representing the current game in EPD hash format
-    """
+
     def EPD_hash(self):
         result = ''
         for i, rank in enumerate(self.board):
@@ -129,11 +107,7 @@ class Chess:
             result += f'{self.x[self.en_passant[0]]}{self.y[self.en_passant[1]]}'
         return result
 
-    """
-    Input: EPD - string representing the current game in EPD hash format
-    Description: update game state to requirements in supplied EPD hash
-    Output: boolean representing the outcome of the function
-    """
+
     def load_EPD(self, EPD):
         data = EPD.split(' ')
         if len(data) == 4:
@@ -169,14 +143,7 @@ class Chess:
         else:
             return False
 
-    """
-    Input: part - integer representing the peice that was moved
-           cur_cord - string representing the current cordinate of the peice
-           next_pos - string representing the next cordinate of the peice
-           n_part - string representing the new part pawn became, used for pawn promotion (Default = None) [OPTIONAL]
-    Description: log player move using chess notation (English)
-    Output: None
-    """
+
     def log_move(self, part, cur_cord, next_cord, cur_pos, next_pos, n_part=None):
         #to remove ambiguity where multiple pieces could make the move add starting identifier after piece notation ex Rab8
         if part == 6*self.p_move and next_pos[0]-cur_pos[0] == 2:
@@ -193,20 +160,15 @@ class Chess:
             move += str(next_cord).lower()
         self.log.append(move)
 
-    """
-    Input: cur_cord - string representing the current cordinate of the peice
-           next_pos - string representing the next cordinate of the peice
-    Description: move peice on game board
-    Output: boolean representing the state of the function
-    """
-    def move(self, cur_pos, next_pos):
+
+    def move(self, cur_pos, next_pos, promotion=None):
         cp = self.board_2_array(cur_pos)
         np = self.board_2_array(next_pos)
         if self.valid_move(cp, np) == True:
             part = self.board[cp[1]][cp[0]]
             if np == self.en_passant and (part == 1 or part == -1):
                 self.board[self.en_passant[1]-(self.p_move*(-1))][self.en_passant[0]] = 0
-            self.log_move(part, cur_pos, next_pos, cp, np)
+            self.log_move(part, cur_pos, next_pos, cp, np, n_part=promotion)
             self.prev_move = self.board
             if (part == 1 and np[1] == 4) or (part == -1 and np[1] == 3):
                 self.en_passant = (np[0], np[1]+1) if part == 1 else (np[0], np[1]-1)
@@ -237,7 +199,16 @@ class Chess:
                     else:
                         self.castling[2] = 0
             self.board[cp[1]][cp[0]] = 0
-            self.board[np[1]][np[0]] = part
+            
+            # Handle pawn promotion
+            if (part == 1 and np[1] == 0) or (part == -1 and np[1] == 7):
+                if promotion is None:
+                    promotion = 'q'  # Default to queen
+                promotion_piece = self.notation[promotion] * self.p_move
+                self.board[np[1]][np[0]] = promotion_piece
+            else:
+                self.board[np[1]][np[0]] = part
+                
             hash = self.EPD_hash()
             if hash in self.EPD_table:
                 self.EPD_table[hash] += 1
@@ -247,12 +218,7 @@ class Chess:
             return True
         return False
 
-    """
-    Input: cur_cord - string representing the current cordinate of the peice
-           next_pos - string representing the next cordinate of the peice
-    Description: determine if player move is valid game move
-    Output: boolean representing the state of the player move
-    """
+
     def valid_move(self, cur_pos, next_pos):
         """Determine if player move is valid game move"""
         if cur_pos != None and next_pos != None:
@@ -264,7 +230,11 @@ class Chess:
                 if next_pos in v_moves:
                     # Make temporary move to check if it puts own king in check
                     temp_board = deepcopy(self)
-                    temp_board.board[next_pos[1]][next_pos[0]] = temp_board.board[cur_pos[1]][cur_pos[0]]
+                    # Handle pawn promotion in temp board
+                    if (part == 1 and next_pos[1] == 0) or (part == -1 and next_pos[1] == 7):
+                        temp_board.board[next_pos[1]][next_pos[0]] = self.notation['q'] * self.p_move
+                    else:
+                        temp_board.board[next_pos[1]][next_pos[0]] = temp_board.board[cur_pos[1]][cur_pos[0]]
                     temp_board.board[cur_pos[1]][cur_pos[0]] = 0
                     
                     # Find king's position
@@ -290,11 +260,7 @@ class Chess:
                     return True
         return False
 
-    """
-    Input: capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-    Description: determine all possible board moves for current game state
-    Output: dictionary containing all possible moves by peice on the board
-    """
+
     def possible_board_moves(self, capture=True):
         moves = {}
         for y, row in enumerate(self.board):
@@ -308,11 +274,7 @@ class Chess:
                     moves[f'{str(self.x[x]).upper() if p_colour > 0 else str(self.x[x]).lower()}{self.y[y]}'] = v_moves
         return moves
 
-    """
-    Input: moves - dictionary containing all possible moves for current game state
-    Description: determine if the current game state results in a check mate or not
-    Output: list representing current state of the game
-    """
+
     def is_checkmate(self, moves):
         """Determine if the current game state results in a check mate or not"""
         self.c_escape = {}
@@ -383,11 +345,7 @@ class Chess:
         else:
             return [1, 0, 0]  # White wins
 
-    """
-    Input: n_part - string representing the new part you want to promote your pawn to (Default=None) [OPTIONAL]
-    Description: update game board with new part for pawn promotion
-    Output: boolean representing the state of the function
-    """
+
     def pawn_promotion(self, n_part=None):
         if n_part == None:
             while True:
@@ -407,12 +365,7 @@ class Chess:
         else:
             return False
 
-    """
-    Input: moves - dictionary containing all possible moves for current game state
-           choice - string representing if you want a draw or not (Default=None) (Choices=['y','yes','n','no']) [OPTIONAL]
-    Description: check current state of the game for the fifty move rule
-    Output: boolean representing the state of the function
-    """
+
     def fifty_move_rule(self, moves, choice=None):
         if len(self.log) > 100:
             for m in self.log[-100:]:
@@ -433,11 +386,7 @@ class Chess:
         elif choice.lower() == 'n' or choice.lower() == 'no' or choice.lower() == '0':
             return False
 
-    """
-    Input: moves - dictionary containing all possible moves for current game state
-    Description: check current state of the game for the seventy five move rule
-    Output: boolean representing the state of the function
-    """
+
     def seventy_five_move_rule(self, moves):
         if len(self.log) > 150:
             for m in self.log[-150:]:
@@ -447,11 +396,7 @@ class Chess:
             return False
         return True
 
-    """
-    Input: hash - string representing the game state you want to check for in game EPD hash table
-    Description: check current state of the game for the three fold rule
-    Output: boolean representing the state of the function
-    """
+
     def three_fold_rule(self, hash):
         if hash in self.EPD_table:
             if self.EPD_table[hash] == 3:
@@ -464,22 +409,14 @@ class Chess:
                     print('Unsupported answer')
         return False
 
-    """
-    Input: hash - string representing the game state you want to check for in game EPD hash table
-    Description: check current state of the game for the five fold rule
-    Output: boolean representing the state of the function
-    """
+
     def five_fold_rule(self, hash):
         if hash in self.EPD_table:
             if self.EPD_table[hash] >= 5:
                 return True
         return False
 
-    """
-    Input: moves - dictionary containing all possible moves for current game state
-    Description: check to see if the current state is a dead position
-    Output: boolean representing the state of the function
-    """
+    
     def is_dead_position(self, moves):
         #King and bishop against king and bishop with both bishops on squares of the same colour
         a_pieces = []
@@ -497,11 +434,7 @@ class Chess:
             return True
         return False
 
-    """
-    Input: moves - dictionary containing all possible moves for current game state
-    Description: check to see if the current state is a stalemate
-    Output: boolean representing the state of the function
-    """
+    
     def is_stalemate(self, moves):
         if False not in [False for p, a in moves.items() if len(a) > 0 and ((self.p_move == 1 and str(p[0]).isupper()) or (self.p_move == -1 and str(p[0]).islower()))]:
             return True
@@ -522,19 +455,15 @@ class Chess:
             return True
         return False
 
-    """
-    Input: None
-    Description: check to see if it's the end of the game
-    Output: list containing the state of the game
-    """
+   
     def is_end(self):
         w_king = False
         b_king = False
         for y, row in enumerate(self.board):
-            for x, peice in enumerate(row):
-                if self.board[y][x] == self.King().value * (-1):
+            for x, piece in enumerate(row):
+                if piece == self.King().value * (-1):
                     b_king = True
-                elif self.board[y][x] == self.King().value:
+                elif piece == self.King().value:
                     w_king = True
         if w_king == False and b_king == False:
             return [0, 1, 0]
@@ -542,7 +471,40 @@ class Chess:
             return [0, 0, 1]
         elif b_king == False:
             return [1, 0, 0]
+        
+        # Find the current player's king position
+        king_pos = None
+        for y in range(8):
+            for x in range(8):
+                if self.board[y][x] == 6 * self.p_move:
+                    king_pos = (x, y)
+                    break
+            if king_pos:
+                break
+
         moves = self.possible_board_moves(capture=True)
+        
+        # If no legal moves for any piece:
+        if not any(len(mv) > 0 for mv in moves.values()):
+            # Check if king is attacked
+            in_check = False
+            for y, row in enumerate(self.board):
+                for x, piece in enumerate(row):
+                    if piece * self.p_move < 0:
+                        p_name = self.parts[abs(piece)]
+                        enemy_moves = getattr(Chess, p_name).movement(self, -self.p_move, (x, y), capture=True)
+                        if king_pos and king_pos in enemy_moves:
+                            in_check = True
+                            break
+                if in_check:
+                    break
+            if in_check:
+                # Checkmate: if it is white's move, black wins; otherwise white wins.
+                return [0, 0, 1] if self.p_move == 1 else [1, 0, 0]
+            else:
+                # Stalemate (draw)
+                return [0, 1, 0]
+
         check_mate = self.is_checkmate(moves)
         hash = self.EPD_hash()
         if sum(check_mate) > 0:
@@ -551,11 +513,7 @@ class Chess:
             return [0, 1, 0]
         return [0, 0, 0]
 
-    """
-    Input: hash - string representing the game state you want to check for in game EPD hash table
-    Description: check current state of the game
-    Output: boolean representing the state of the game or string representing additional action needed
-    """
+    
     def check_state(self, hash):
         if len(self.log) > 0 and self.p_move == 1 and (self.log[-1][0].isupper() == False or self.log[-1][0] == 'P') and True in [True for l in self.log[-1] if l == '8']:
             return 'PP' #Pawn promotion
@@ -571,21 +529,13 @@ class Chess:
         else:
             return None
 
-    """
-    Input: None
-    Description: Suggest a move using the Alpha-Beta pruning algorithm
-    Output: tuple representing the suggested move (start_square, end_square)
-    """
+   
     def get_alpha_beta_move(self, depth=3):
         """Get the best move using Alpha-Beta pruning with configurable depth."""
         _, best_move = self.alpha_beta(depth, float('-inf'), float('inf'), True)
-        return best_move if best_move else ("No move", "No move")
+        return best_move
 
-    """
-    Input: None
-    Description: Suggest a move using an Evolutionary Algorithm
-    Output: tuple representing the suggested move (start_square, end_square)
-    """
+    
     def evolutionary_algorithm(self, population_size=30, generations=10):
         """Get the best move using an Evolutionary Algorithm with improved diversity and evaluation."""
         import random
@@ -598,9 +548,18 @@ class Chess:
             if ((self.p_move == 1 and start_square[0].isupper()) or 
                 (self.p_move == -1 and start_square[0].islower())) and moves:
                 for move_coord in moves:
-                    valid_moves.append((start_square, f"{self.x[move_coord[0]]}{self.y[move_coord[1]]}"))
+                    # Check if this is a pawn promotion
+                    start_pos = self.board_2_array(start_square)
+                    piece = self.board[start_pos[1]][start_pos[0]]
+                    promotions = [None]
+                    if abs(piece) == 1:  # pawn
+                        if (piece > 0 and move_coord[1] == 0) or (piece < 0 and move_coord[1] == 7):
+                            promotions = ['q','r','b','n']
+                    
+                    for promo in promotions:
+                        valid_moves.append((start_square, f"{self.x[move_coord[0]]}{self.y[move_coord[1]]}", promo))
         if not valid_moves:
-            return ("No move", "No move")
+            return ("No move", "No move", None)
         # Initialize population with random valid moves
         population = [random.choice(valid_moves) for _ in range(population_size)]
         # Evolution process
@@ -609,7 +568,7 @@ class Chess:
             fitness_scores = []
             for move in population:
                 temp_board = deepcopy(self)
-                if temp_board.move(move[0], move[1]):
+                if temp_board.move(move[0], move[1], move[2]):
                     fitness_scores.append(temp_board.evaluate_position() * self.p_move)
                 else:
                     fitness_scores.append(float('-inf'))
@@ -635,18 +594,14 @@ class Chess:
         best_score = float('-inf')
         for move in population:
             temp_board = deepcopy(self)
-            if temp_board.move(move[0], move[1]):
+            if temp_board.move(move[0], move[1], move[2]):
                 score = temp_board.evaluate_position() * self.p_move
                 if score > best_score:
                     best_score = score
                     best_move = move
-        return best_move if best_move else ("No move", "No move")
+        return best_move if best_move else ("No move", "No move", None)
 
-    """
-    Input: None
-    Description: Suggest a move using Particle Swarm Optimization (PSO)
-    Output: tuple representing the suggested move (start_square, end_square)
-    """
+   
     def particle_swarm_optimization(self, num_particles=30, iterations=15):
         """Get the best move using PSO with improved diversity and evaluation."""
         import random
@@ -660,9 +615,18 @@ class Chess:
             if ((self.p_move == 1 and start_square[0].isupper()) or 
                 (self.p_move == -1 and start_square[0].islower())) and moves:
                 for move in moves:
-                    valid_moves.append((start_square, f"{self.x[move[0]]}{self.y[move[1]]}"))
+                    # Check if this is a pawn promotion
+                    start_pos = self.board_2_array(start_square)
+                    piece = self.board[start_pos[1]][start_pos[0]]
+                    promotions = [None]
+                    if abs(piece) == 1:  # pawn
+                        if (piece > 0 and move[1] == 0) or (piece < 0 and move[1] == 7):
+                            promotions = ['q','r','b','n']
+                    
+                    for promo in promotions:
+                        valid_moves.append((start_square, f"{self.x[move[0]]}{self.y[move[1]]}", promo))
         if not valid_moves:
-            return ("No move", "No move")
+            return ("No move", "No move", None)
         # Initialize particles
         particles = [random.choice(valid_moves) for _ in range(num_particles)]
         velocities = [random.randint(-2, 2) for _ in range(num_particles)]
@@ -670,7 +634,7 @@ class Chess:
         personal_best_scores = []
         for particle in particles:
             temp_board = deepcopy(self)
-            if temp_board.move(particle[0], particle[1]):
+            if temp_board.move(particle[0], particle[1], particle[2]):
                 score = temp_board.evaluate_position() * self.p_move
             else:
                 score = float('-inf')
@@ -691,7 +655,7 @@ class Chess:
                 particles[i] = valid_moves[new_index]
                 # Evaluate new position
                 temp_board = deepcopy(self)
-                if temp_board.move(particles[i][0], particles[i][1]):
+                if temp_board.move(particles[i][0], particles[i][1], particles[i][2]):
                     score = temp_board.evaluate_position() * self.p_move
                 else:
                     score = float('-inf')
@@ -705,11 +669,7 @@ class Chess:
                         global_best_position = particles[i]
         return global_best_position
 
-    """
-    Input: None
-    Description: Evaluate the current board position
-    Output: integer representing the score of the board position
-    """
+    
     def evaluate_position(self):
         """Evaluate the current board position with material and positional factors."""
         score = 0
@@ -818,14 +778,7 @@ class Chess:
             score -= 30
         return score
 
-    """
-    Input: depth - integer representing the depth of the search
-           alpha - float representing the alpha value for pruning
-           beta - float representing the beta value for pruning
-           maximizing_player - boolean representing if the current player is maximizing or minimizing
-    Description: Alpha-Beta pruning algorithm for move searching
-    Output: tuple containing the evaluation score and the best move
-    """
+    
     def alpha_beta(self, depth, alpha, beta, maximizing_player):
         """Alpha-Beta pruning algorithm for move searching."""
         if depth == 0:
@@ -836,15 +789,26 @@ class Chess:
             for start_square, moves in self.possible_board_moves().items():
                 if (self.p_move == 1 and start_square[0].isupper()) or (self.p_move == -1 and start_square[0].islower()):
                     for move in moves:
-                        temp_board = deepcopy(self)
-                        move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
-                        if temp_board.move(start_square, move_str):
-                            eval_score, _ = temp_board.alpha_beta(depth - 1, alpha, beta, False)
-                            if eval_score > max_eval:
-                                max_eval = eval_score
-                                best_move = (start_square, move_str)
-                            alpha = max(alpha, eval_score)
-                            if beta <= alpha:
+                        # Check if this is a pawn promotion
+                        start_pos = self.board_2_array(start_square)
+                        piece = self.board[start_pos[1]][start_pos[0]]
+                        promotions = [None]
+                        if abs(piece) == 1:  # pawn
+                            if (piece > 0 and move[1] == 0) or (piece < 0 and move[1] == 7):
+                                promotions = ['q','r','b','n']
+                        
+                        for promo in promotions:
+                            temp_board = deepcopy(self)
+                            move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
+                            if temp_board.move(start_square, move_str, promotion=promo):
+                                eval_score, _ = temp_board.alpha_beta(depth - 1, alpha, beta, False)
+                                if eval_score > max_eval:
+                                    max_eval = eval_score
+                                    best_move = (start_square, move_str, promo)
+                                alpha = max(alpha, eval_score)
+                                if beta <= alpha:
+                                    break
+                            if promo is not None and beta <= alpha:
                                 break
             return max_eval, best_move
         else:
@@ -852,15 +816,26 @@ class Chess:
             for start_square, moves in self.possible_board_moves().items():
                 if (self.p_move == 1 and start_square[0].isupper()) or (self.p_move == -1 and start_square[0].islower()):
                     for move in moves:
-                        temp_board = deepcopy(self)
-                        move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
-                        if temp_board.move(start_square, move_str):
-                            eval_score, _ = temp_board.alpha_beta(depth - 1, alpha, beta, True)
-                            if eval_score < min_eval:
-                                min_eval = eval_score
-                                best_move = (start_square, move_str)
-                            beta = min(beta, eval_score)
-                            if beta <= alpha:
+                        # Check if this is a pawn promotion
+                        start_pos = self.board_2_array(start_square)
+                        piece = self.board[start_pos[1]][start_pos[0]]
+                        promotions = [None]
+                        if abs(piece) == 1:  # pawn
+                            if (piece > 0 and move[1] == 0) or (piece < 0 and move[1] == 7):
+                                promotions = ['q','r','b','n']
+                        
+                        for promo in promotions:
+                            temp_board = deepcopy(self)
+                            move_str = f"{self.x[move[0]]}{self.y[move[1]]}"
+                            if temp_board.move(start_square, move_str, promotion=promo):
+                                eval_score, _ = temp_board.alpha_beta(depth - 1, alpha, beta, True)
+                                if eval_score < min_eval:
+                                    min_eval = eval_score
+                                    best_move = (start_square, move_str, promo)
+                                beta = min(beta, eval_score)
+                                if beta <= alpha:
+                                    break
+                            if promo is not None and beta <= alpha:
                                 break
             return min_eval, best_move
 
@@ -868,22 +843,12 @@ class Chess:
     Chess peice object for the king
     """
     class King:
-        """
-        Input: None
-        Description: King initail variables
-        Output: None
-        """
+        
         def __init__(self):
             self.value = 6 #Numerical value of piece
             self.notation = 'K' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
+        
         def movement(game, player, pos, capture=True):
             result = []
             if pos[1]+1 >= 0 and pos[1]+1 <= 7 and pos[0] >= 0 and pos[0] <= 7 and (game.board[pos[1]+1][pos[0]]*player < 0 or game.board[pos[1]+1][pos[0]] == 0):
@@ -912,22 +877,12 @@ class Chess:
     Chess peice object for the queen
     """
     class Queen:
-        """
-        Input: None
-        Description: Queen initail variables
-        Output: None
-        """
+       
         def __init__(self):
             self.value = 5 #Numerical value of piece
             self.notation = 'Q' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
+        
         def movement(game, player, pos, capture=True):
             result = []
             check = [True, True, True, True, True, True, True, True]
@@ -988,22 +943,11 @@ class Chess:
     Chess peice object for the rook
     """
     class Rook:
-        """
-        Input: None
-        Description: Rook initail variables
-        Output: None
-        """
+        
         def __init__(self):
             self.value = 4 #Numerical value of piece
             self.notation = 'R' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
         def movement(game, player, pos, capture=True):
             result = []
             check = [True, True, True, True]
@@ -1040,22 +984,12 @@ class Chess:
     Chess peice object for the bishop
     """
     class Bishop:
-        """
-        Input: None
-        Description: Bishop initail variables
-        Output: None
-        """
+        
         def __init__(self):
             self.value = 3 #Numerical value of piece
             self.notation = 'B' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
+       
         def movement(game, player, pos, capture=True):
             result = []
             check = [True, True, True, True]
@@ -1092,22 +1026,12 @@ class Chess:
     Chess peice object for the knight
     """
     class Knight:
-        """
-        Input: None
-        Description: Knight initail variables
-        Output: None
-        """
+        
         def __init__(self):
             self.value = 2 #Numerical value of piece
             self.notation = 'N' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
+       
         def movement(game, player, pos, capture=True):
             result = []
             for i in [-1, 1]:
@@ -1125,22 +1049,12 @@ class Chess:
     Chess peice object for the pawn
     """
     class Pawn:
-        """
-        Input: None
-        Description: Pawn initail variables
-        Output: None
-        """
+        
         def __init__(self):
             self.value = 1 #Numerical value of piece
             self.notation = '' #Chess notation
 
-        """
-        Input: player - integer representing which player the peice belongs to
-               pos - tuple containing the current position of the peice
-               capture - boolean representing control of if you do not allow moves past peice capture (Default=True) [OPTIONAL]
-        Description: show possible moves for peice
-        Output: list of possible moves for the peice
-        """
+        
         def movement(game, player, pos, capture=True):
             result = []
             init = 1 if player < 0 else 6
