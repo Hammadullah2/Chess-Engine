@@ -226,11 +226,64 @@ class ChessGUI:
             pygame.display.flip()
             time.sleep(0.05)  # Small delay to prevent high CPU usage
         
-        if move and move != ("No move", "No move"):
-            if self.chess_game.move(move[0], move[1]):
-                self.last_move = move
+        if move and move != ("No move", "No move", None):
+            if self.chess_game.move(move[0], move[1], move[2]):
+                self.last_move = (move[0], move[1])
                 return True
         return False
+
+    def show_promotion_popup(self, pawn_square):
+        """Show a popup for pawn promotion and return the chosen piece"""
+        # Draw a popup window with four pieces: queen, rook, bishop, knight
+        # We'll use the current player's color to determine the piece color
+        piece_color = 'white' if self.chess_game.p_move == 1 else 'black'
+        pieces = ['q', 'r', 'b', 'n']
+        piece_names = {'q': 'Queen', 'r': 'Rook', 'b': 'Bishop', 'n': 'Knight'}
+
+        # Create a surface for the popup
+        popup_width = 200
+        popup_height = 100
+        popup = pygame.Surface((popup_width, popup_height))
+        popup.fill((255, 255, 255))
+        pygame.draw.rect(popup, (0, 0, 0), (0,0,popup_width, popup_height), 2)
+
+        # Draw the four piece options
+        buttons = []
+        for i, piece in enumerate(pieces):
+            rect = pygame.Rect(i * 50, 0, 50, 50)
+            buttons.append(rect)
+            # Draw the piece image
+            piece_char = piece.upper() if piece_color == 'white' else piece
+            if piece_char in self.pieces:
+                # Scale to fit in the button
+                img = pygame.transform.scale(self.pieces[piece_char], (40,40))
+                popup.blit(img, (i*50+5, 5))
+
+        # Center the popup on the screen
+        popup_x = (self.WINDOW_SIZE[0] - popup_width) // 2
+        popup_y = (self.WINDOW_SIZE[1] - popup_height) // 2
+
+        # Main loop for the popup
+        chosen_piece = None
+        while chosen_piece is None:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    # Adjust mouse position relative to the popup
+                    rel_x = mouse_pos[0] - popup_x
+                    rel_y = mouse_pos[1] - popup_y
+                    for i, rect in enumerate(buttons):
+                        if rect.collidepoint(rel_x, rel_y):
+                            chosen_piece = pieces[i]
+
+            # Draw the popup
+            self.screen.blit(popup, (popup_x, popup_y))
+            pygame.display.flip()
+
+        return chosen_piece
 
     def load_images(self):
         """Load piece images from the 'pieces' folder"""
@@ -344,11 +397,11 @@ class ChessGUI:
         
         with self.suggestion_lock:
             if not self.alpha_beta_suggestion:
-                self.alpha_beta_suggestion = ("No suggestion", "No suggestion")
+                self.alpha_beta_suggestion = ("No suggestion", "No suggestion", None)
             if not self.evolutionary_suggestion:
-                self.evolutionary_suggestion = ("No suggestion", "No suggestion")
+                self.evolutionary_suggestion = ("No suggestion", "No suggestion", None)
             if not self.pso_suggestion:
-                self.pso_suggestion = ("No suggestion", "No suggestion")
+                self.pso_suggestion = ("No suggestion", "No suggestion", None)
 
             suggestion_texts = [
                 f"Alpha-Beta: {self.alpha_beta_suggestion[0]} → {self.alpha_beta_suggestion[1]}",
@@ -485,7 +538,14 @@ class ChessGUI:
                             pos = event.pos
                             target_square = self.get_square_from_pos(pos)
                             if target_square and self.selected_piece:
-                                if self.chess_game.move(self.selected_piece, target_square):
+                                # Check if this is a pawn promotion
+                                start_board_pos = self.chess_game.board_2_array(self.selected_piece)
+                                piece = self.chess_game.board[start_board_pos[1]][start_board_pos[0]]
+                                promotion = None
+                                if abs(piece) == 1:  # pawn
+                                    if (piece > 0 and target_square[1] == '8') or (piece < 0 and target_square[1] == '1'):
+                                        promotion = self.show_promotion_popup(self.selected_piece)
+                                if self.chess_game.move(self.selected_piece, target_square, promotion=promotion):
                                     self.last_move = (self.selected_piece, target_square)
                                     self.is_player_turn = False  # Switch to AI's turn
                             
